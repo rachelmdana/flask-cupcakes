@@ -29,24 +29,36 @@ CUPCAKE_DATA_2 = {
 }
 
 
-class CupcakeViewsTestCase(TestCase):
+class CupcakeViewsTestCase(unittest.TestCase):
     """Tests for views of API."""
 
+    @classmethod
+    def setUpClass(cls):
+        """Setup the application and test client only once."""
+        with app.app_context():
+            db.drop_all()
+            db.create_all()
+
     def setUp(self):
-        """Make demo data."""
-
-        Cupcake.query.delete()
-
-        cupcake = Cupcake(**CUPCAKE_DATA)
-        db.session.add(cupcake)
-        db.session.commit()
-
-        self.cupcake = cupcake
+        """Make demo data and setup transaction."""
+        self.app = app.test_client()
+        with app.app_context():
+            Cupcake.query.delete()
+            cupcake = Cupcake(**CUPCAKE_DATA)
+            db.session.add(cupcake)
+            db.session.commit()
+            self.cupcake = cupcake
 
     def tearDown(self):
         """Clean up fouled transactions."""
+        with app.app_context():
+            db.session.rollback()
 
-        db.session.rollback()
+    @classmethod
+    def tearDownClass(cls):
+        """Teardown the application after all tests."""
+        with app.app_context():
+            db.drop_all()
 
     def test_list_cupcakes(self):
         with app.test_client() as client:
@@ -107,3 +119,18 @@ class CupcakeViewsTestCase(TestCase):
             })
 
             self.assertEqual(Cupcake.query.count(), 2)
+
+    def test_patch_cupcake(self):
+        # Use the Flask test client to send a PATCH request to update the cupcake
+        with app.test_client() as client:
+            response = client.patch(f'/api/cupcakes/{self.cupcake.id}', json={
+                'flavor': 'Updated Flavor', 'size': 'Medium', 'rating': 4.5})
+
+        # Check the response status code
+        self.assertEqual(response.status_code, 200)
+
+        # Check if the cupcake was updated
+        updated_cupcake = Cupcake.query.get(self.cupcake.id)
+        self.assertEqual(updated_cupcake.flavor, 'Updated Flavor')
+        self.assertEqual(updated_cupcake.size, 'Medium')
+        self.assertEqual(updated_cupcake.rating, 4.5)

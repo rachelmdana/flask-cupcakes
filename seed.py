@@ -6,7 +6,7 @@ db.drop_all()
 db.create_all()
 
 c1 = Cupcake(
-    flavor="cherry",
+    flavor="strawberry",
     size="large",
     rating=5,
 )
